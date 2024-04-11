@@ -19,8 +19,8 @@ pygments==2.13.0
 six==1.16.0
 scikit-learn
 stack-data==0.6.2
-torch==1.8.1
-torchvision==0.9.1
+torch
+torchvision
 tqdm==4.64.1
 traitlets==5.8.0
 typing-extensions==4.4.0
