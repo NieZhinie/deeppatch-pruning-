@@ -40,6 +40,9 @@ class AdvWrapper(nn.Module):
             out = self.module.conv(x)
             repl = self.module.cru(x)
 
+            if self.module.prune_indices is not None:
+                out[:, self.module.prune_indices] = 0
+
             if indicator is None:
                 out = (out, repl, self.module.indices)
             elif indicator is True:

@@ -55,7 +55,7 @@ def performance_loss(opt, model, device):
     criterion = torch.nn.CrossEntropyLoss()
     base_acc1, _ = test(model, valloader1, criterion, device)
     base_acc2, _ = test(model, valloader2, criterion, device)
-    base_acc = base_acc1 + base_acc2
+    base_acc = (base_acc1 + base_acc2)/2
 
     def _mask_out_channel(chn):
         def __hook(module, finput, foutput):
@@ -68,18 +68,28 @@ def performance_loss(opt, model, device):
     for lname in tqdm(conv_names, desc='Modules'):
         module = rgetattr(model, lname)
         perfloss = []
+        accloss = []
+        avgloss = []
         for chn in tqdm(range(module.out_channels), desc='Filters', leave=False):
             handle = module.register_forward_hook(_mask_out_channel(chn))
             acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=False)
             acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=False)
-            perfloss.append(base_acc - acc1 - acc2)
+            perfloss.append(base_acc2 - acc2)
+            accloss.append(base_acc1 - acc1)
+            avgloss.append(base_acc - (acc1 + acc2)/2)
             handle.remove()
 
         score = sorted(perfloss)
         indices = sorted(range(len(perfloss)), key=lambda i: perfloss[i])
+        accscore = sorted(accloss)
+        indices = sorted(range(len(accloss)), key=lambda i: accloss[i])
+        avgscore = sorted(avgloss)
+        indices = sorted(range(len(avgloss)), key=lambda i: avgloss[i])
         suspicious[lname] = {
             'score': score,
-            'indices': indices
+            'indices': indices,
+            'accscore': accscore,
+            'avgscore': avgscore
         }
 
     return suspicious

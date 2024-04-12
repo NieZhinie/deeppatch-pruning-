@@ -46,9 +46,10 @@ class CorrectionUnit(nn.Module):
 
 
 class ConcatCorrect(nn.Module):
-    def __init__(self, conv_layer, indices):
+    def __init__(self, conv_layer, indices, prune_indices=None):
         super(ConcatCorrect, self).__init__()
         self.indices = indices
+        self.prune_indices = prune_indices
         self.others = [i for i in range(conv_layer.out_channels)
                        if i not in indices]
         self.conv = conv_layer
@@ -57,6 +58,8 @@ class ConcatCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
+        if self.prune_indices is not None:
+            out[:, self.prune_indices] = 0
         out_lower = out[:, self.others]
         out_upper = self.cru(out[:, self.indices])
         out = torch.cat([out_lower, out_upper], dim=1)
@@ -65,9 +68,10 @@ class ConcatCorrect(nn.Module):
 
 
 class ReplaceCorrect(nn.Module):
-    def __init__(self, conv_layer, indices):
+    def __init__(self, conv_layer, indices, prune_indices=None):
         super(ReplaceCorrect, self).__init__()
         self.indices = indices
+        self.prune_indices = prune_indices
         self.conv = conv_layer
         self.cru = nn.Conv2d(
             conv_layer.in_channels,
@@ -80,18 +84,23 @@ class ReplaceCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
+        if self.prune_indices is not None:
+            out[:, self.prune_indices] = 0
         out[:, self.indices] = self.cru(x)
         return out
 
 
 class NoneCorrect(nn.Module):
-    def __init__(self, conv_layer, indices):
+    def __init__(self, conv_layer, indices, prune_indices=None):
         super(NoneCorrect, self).__init__()
         self.indices = indices
+        self.prune_indices = prune_indices
         self.conv = conv_layer
 
     def forward(self, x):
         out = self.conv(x)
+        if self.prune_indices is not None:
+            out[:, self.prune_indices] = 0
         out[:, self.indices] = 0
         return out
 
@@ -108,16 +117,13 @@ def construct_model(opt, model, patch=True):
         num_susp = int(module.out_channels * opt.susp_ratio)
         if opt.susp_side == 'front':
             indices = sus_filters[layer_name]['indices'][:num_susp]
-            if opt.prune:
-                prune_indices = sus_filters[layer_name]['indices'][num_susp:]
+            prune_indices = sus_filters[layer_name]['indices'][num_susp:] if opt.prune else None
         elif opt.susp_side == 'rear':
             indices = sus_filters[layer_name]['indices'][-num_susp:]
-            if opt.prune:
-                prune_indices = sus_filters[layer_name]['indices'][:-num_susp]
+            prune_indices = sus_filters[layer_name]['indices'][:-num_susp] if opt.prune else None
         elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp)
-            if opt.prune:
-                prune_indices = [i for i in range(module.out_channels) if i not in indices]
+            prune_indices = [i for i in range(module.out_channels) if i not in indices] if opt.prune else None
         else:
             raise ValueError('Invalid suspicious side')
 
@@ -125,16 +131,13 @@ def construct_model(opt, model, patch=True):
             continue
 
         if patch is False:
-            correct_module = NoneCorrect(module, indices)
+            correct_module = NoneCorrect(module, indices, prune_indices)
         elif opt.pt_method == 'DC':
-            correct_module = ConcatCorrect(module, indices)
+            correct_module = ConcatCorrect(module, indices, prune_indices)
         elif 'DP' in opt.pt_method:
-            correct_module = ReplaceCorrect(module, indices)
+            correct_module = ReplaceCorrect(module, indices, prune_indices)
         else:
             raise ValueError('Invalid correct type')
-        
-        if opt.prune is True:
-            correct_module = NoneCorrect(correct_module, prune_indices)
             
         rsetattr(model, layer_name, correct_module)
     return model
