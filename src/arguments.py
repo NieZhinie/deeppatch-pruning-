@@ -64,4 +64,5 @@ advparser.add_argument('--crossover_prob', type=float, default=0.4)
 advparser.add_argument('--pp_order', type=str, default='prune', choices=pporder)
 advparser.add_argument('--patch_indices', type=str, default='indices', choices=indices)
 advparser.add_argument('--prune_indices', type=str, default='accindices', choices=indices)
+advparser.add_argument('--verbose', type=bool, default=False)
 

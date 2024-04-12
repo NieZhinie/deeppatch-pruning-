@@ -70,10 +70,10 @@ def performance_loss(opt, model, device):
         perfloss = []
         accloss = []
         avgloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False):
+        for chn in tqdm(range(module.out_channels), desc='Filters', leave=opt.verbose):
             handle = module.register_forward_hook(_mask_out_channel(chn))
-            acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=False)
-            acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=False)
+            acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=opt.verbose)
+            acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=opt.verbose)
             perfloss.append(base_acc2 - acc2)
             accloss.append(base_acc1 - acc1)
             avgloss.append(base_acc - (acc1 + acc2)/2)
