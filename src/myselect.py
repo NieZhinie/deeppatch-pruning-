@@ -82,14 +82,16 @@ def performance_loss(opt, model, device):
         score = sorted(perfloss)
         indices = sorted(range(len(perfloss)), key=lambda i: perfloss[i])
         accscore = sorted(accloss)
-        indices = sorted(range(len(accloss)), key=lambda i: accloss[i])
+        accindices = sorted(range(len(accloss)), key=lambda i: accloss[i])
         avgscore = sorted(avgloss)
-        indices = sorted(range(len(avgloss)), key=lambda i: avgloss[i])
+        avgindices = sorted(range(len(avgloss)), key=lambda i: avgloss[i])
         suspicious[lname] = {
             'score': score,
             'indices': indices,
             'accscore': accscore,
-            'avgscore': avgscore
+            'accindices': accindices,
+            'avgscore': avgscore,
+            'avgindices': avgindices
         }
 
     return suspicious

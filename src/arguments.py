@@ -27,7 +27,8 @@ noises = ['gaussion']
 crtmethods = ['patch', 'finetune', 'sensei', 'apricot', 'robot', 'gini', 'augmix', 'none']
 fsmethods = ['featswap', 'perfloss', 'ratioestim', 'avgloss']
 ptmethods = ['NULL', 'DC', 'DP', 'DP-s', 'DP-SS', 'SS-DP']
-
+pporder = ['prune', 'patch']
+indices = ['indices', 'accindices', 'avgindices']
 
 commparser = argparse.ArgumentParser(add_help=False)
 commparser.add_argument('--data_dir', default='data')
@@ -37,7 +38,7 @@ commparser.add_argument('--gpu', type=int, default=0, choices=[0, 1, 2, 3])
 commparser.add_argument('-b', '--batch_size', type=int, default=256)
 commparser.add_argument('-m', '--model', type=str, required=True, choices=models)
 commparser.add_argument('-r', '--resume', action='store_true')
-commparser.add_argument('--seed', type=int, default=2021)
+commparser.add_argument('--seed', type=int, default=2024)
 data_group = commparser.add_argument_group('dataset')
 data_group.add_argument('-d', '--dataset', type=str, required=True, choices=datasets)
 data_group.add_argument('-n', '--noise_type', type=str, default='gaussion', choices=noises)
@@ -52,11 +53,15 @@ advparser = argparse.ArgumentParser(parents=[commparser])
 advparser.add_argument('-c', '--crt_method', type=str, required=True, choices=crtmethods)
 advparser.add_argument('-f', '--fs_method', type=str, default=None, required='patch' in sys.argv, choices=fsmethods)
 advparser.add_argument('-p', '--pt_method', type=str, default=None, required='patch' in sys.argv, choices=ptmethods)
-advparser.add_argument('--prune', type=bool, default=None, required='patch' in sys.argv)
+advparser.add_argument('--prune', type=bool, default=False)
 advparser.add_argument('--crt_epoch', type=int, default=20)
-advparser.add_argument('--susp_ratio', type=float, default=0.25)
+advparser.add_argument('--susp_ratio', type=float, default=0.1)
+advparser.add_argument('--prune_ratio', type=float, default=0.1)
 advparser.add_argument('--susp_side', type=str, default='front', choices=['front', 'rear', 'random'])
 advparser.add_argument('--robust_threshold', type=float, default=1e-3)
 advparser.add_argument('--popsize', type=int, default=10)
 advparser.add_argument('--crossover_prob', type=float, default=0.4)
+advparser.add_argument('--pp_order', type=str, default='prune', choices=pporder)
+advparser.add_argument('--patch_indices', type=str, default='indices', choices=indices)
+advparser.add_argument('--prune_indices', type=str, default='accindices', choices=indices)
 

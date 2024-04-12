@@ -8,7 +8,7 @@ from model import load_model
 from dataset import load_dataset
 from arguments import advparser as parser
 from train import test
-from correct import construct_model, ReplaceCorrect
+from correct import construct_model, ReplaceCorrect, ConcatCorrect, NoneCorrect
 from utils import *
 
 
@@ -36,17 +36,22 @@ class AdvWrapper(nn.Module):
 
     def forward(self, x):
         global indicator
-        if isinstance(self.module, ReplaceCorrect):
+        if isinstance(self.module, ReplaceCorrect) or \
+            isinstance(self.module, ConcatCorrect) or \
+            isinstance(self.module, NoneCorrect):
             out = self.module.conv(x)
             repl = self.module.cru(x)
 
-            if self.module.prune_indices is not None:
-                out[:, self.module.prune_indices] = 0
-
             if indicator is None:
+                if self.module.prune_indices is not None:
+                    out[:, self.module.prune_indices] = 0
                 out = (out, repl, self.module.indices)
             elif indicator is True:
+                if self.module.prune_indices is not None and self.module.order:
+                    out[:, self.module.prune_indices] = 0
                 out[:, self.module.indices] = repl
+                if self.module.prune_indices is not None:
+                    out[:, self.module.prune_indices] = 0
 
         elif isinstance(self.module, nn.BatchNorm2d):
             if indicator is None:
