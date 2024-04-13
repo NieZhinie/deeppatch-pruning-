@@ -10,25 +10,23 @@ from utils import *
 def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
     model.train()
     train_loss, correct, total = 0, 0, 0
-    with trainloader as tepoch:
-        for batch_idx, (inputs, targets) in enumerate(tepoch):
-            if tqdm_use:
-                tqdm.write(f'Train {batch_idx}')
-            inputs, targets = inputs.to(device), targets.to(device)
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        if tqdm_use:
+            tqdm.write(f'Train {batch_idx}')
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
 
-            train_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
 
-            avg_loss = train_loss / (batch_idx + 1)
-            acc = 100. * correct / total
-            tepoch.set_postfix(loss=avg_loss, acc=acc)
+        avg_loss = train_loss / (batch_idx + 1)
+        acc = 100. * correct / total
 
     return acc, avg_loss
 
@@ -40,26 +38,24 @@ def test(
     model.eval()
     test_loss, correct, total = 0, 0, 0
     pred_labels, trg_labels = [], []
-    with valloader as tepoch:
-        for batch_idx, (inputs, targets) in enumerate(tepoch):
-            if tqdm_use:
-                tqdm.write(f'Evaluate {batch_idx}')
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
+    for batch_idx, (inputs, targets) in enumerate(valloader):
+        if tqdm_use:
+            tqdm.write(f'Evaluate {batch_idx}')
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
 
-            test_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+        test_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
 
-            if return_label:
-                pred_labels.append(predicted.cpu())
-                trg_labels.append(targets.cpu())
+        if return_label:
+            pred_labels.append(predicted.cpu())
+            trg_labels.append(targets.cpu())
 
-            avg_loss = test_loss / (batch_idx + 1)
-            acc = 100. * correct / total
-            tepoch.set_postfix(loss=avg_loss, acc=acc)
+        avg_loss = test_loss / (batch_idx + 1)
+        acc = 100. * correct / total
 
     acc = 100. * correct / total
 
