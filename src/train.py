@@ -7,7 +7,7 @@ from arguments import commparser as parser
 from utils import *
 
 
-def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
+def train(model, trainloader, optimizer, criterion, device, desc='Train'):
     model.train()
     train_loss, correct, total = 0, 0, 0
     with tqdm(trainloader, desc=desc) as tepoch:
@@ -19,13 +19,14 @@ def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_u
             loss.backward()
             optimizer.step()
 
-        train_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
+            train_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
 
-        avg_loss = train_loss / (batch_idx + 1)
-        acc = 100. * correct / total
+            avg_loss = train_loss / (batch_idx + 1)
+            acc = 100. * correct / total
+            tepoch.set_postfix(loss=avg_loss, acc=acc)
 
     return acc, avg_loss
 
@@ -33,29 +34,28 @@ def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_u
 @torch.no_grad()
 def test(
         model, valloader, criterion, device,
-        desc='Evaluate', return_label=False, tqdm_leave=True, tqdm_use=True):
+        desc='Evaluate', return_label=False, tqdm_leave=True):
     model.eval()
     test_loss, correct, total = 0, 0, 0
     pred_labels, trg_labels = [], []
-    with valloader as tepoch:
+    with tqdm(valloader, desc=desc, leave=tqdm_leave) as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
-            if tqdm_use:
-                tqdm.write(f'Evaluate {batch_idx}')
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
-        test_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
 
-        if return_label:
-            pred_labels.append(predicted.cpu())
-            trg_labels.append(targets.cpu())
+            if return_label:
+                pred_labels.append(predicted.cpu())
+                trg_labels.append(targets.cpu())
 
-        avg_loss = test_loss / (batch_idx + 1)
-        acc = 100. * correct / total
+            avg_loss = test_loss / (batch_idx + 1)
+            acc = 100. * correct / total
+            tepoch.set_postfix(loss=avg_loss, acc=acc)
 
     acc = 100. * correct / total
 

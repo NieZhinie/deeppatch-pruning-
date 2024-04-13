@@ -120,12 +120,12 @@ def switch_on_the_fly(opt, model, device):
 
     criterion = torch.nn.CrossEntropyLoss()
     _, valloader = load_dataset(opt, split='val')
-    test(model, valloader, criterion, device, desc='Calibrate', tqdm_use=opt.verbose)
+    test(model, valloader, criterion, device, desc='Calibrate')
     std_mean = torch.cat(diff_list).mean()
 
     diff_list.clear()
     _, valloader = load_dataset(opt, split='val', noise=True, noise_type='expand')
-    test(model, valloader, criterion, device, desc='Calibrate', tqdm_use=opt.verbose)
+    test(model, valloader, criterion, device, desc='Calibrate')
     # _, spatialloader = load_dataset(opt, split='val', aug=True)
     # test(model, spatialloader, criterion, device, desc='Calibrate')
     noise_mean = torch.cat(diff_list).mean()
@@ -137,18 +137,18 @@ def switch_on_the_fly(opt, model, device):
 
     # Evaluate
     _, testloader = load_dataset(opt, split='test')
-    std_acc, _ = test(model, testloader, criterion, device, tqdm_use=opt.verbose)
+    std_acc, _ = test(model, testloader, criterion, device)
     print('[info] the normal accuracy is {:.4f}%'.format(std_acc))
 
     partial_noisy_acc = []
     for std in [0.5, 1., 1.5, 2., 2.5, 3.]:
         _, testloader = load_dataset(opt, split='test', noise=True, noise_type='replace', gblur_std=std)
-        acc, _ = test(model, testloader, criterion, device, tqdm_use=opt.verbose)
+        acc, _ = test(model, testloader, criterion, device)
         print('[info] the robustness accuracy for std {:.1f} is {:.4f}%'.format(std, acc))
         partial_noisy_acc.append(acc)
 
     _, testloader = load_dataset(opt, split='test', noise=True, noise_type='append')
-    noisy_acc, _ = test(model, testloader, criterion, device, tqdm_use=opt.verbose)
+    noisy_acc, _ = test(model, testloader, criterion, device)
     print('[info] the robustness accuracy is {:.4f}%'.format(noisy_acc))
 
     # _, spatialloader = load_dataset(opt, split='test', aug=True)
