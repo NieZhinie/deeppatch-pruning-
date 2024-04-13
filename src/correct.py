@@ -219,7 +219,7 @@ def patch(opt, model, device):
                     or isinstance(m, NoneCorrect):
                 m.indices = ckp['indices'][n]
     else:
-        best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+        best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
 
     for epoch in range(start_epoch + 1, opt.crt_epoch):
         print('Epoch: {}'.format(epoch))
@@ -228,8 +228,8 @@ def patch(opt, model, device):
             trainloader = torch.utils.data.DataLoader(
                 trainset, batch_size=opt.batch_size, shuffle=True, num_workers=4
             )
-        train(model, trainloader, optimizer, criterion, device)
-        acc, *_ = test(model, valloader, criterion, device)
+        train(model, trainloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {
@@ -263,11 +263,11 @@ def finetune(opt, model, device):
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
     for epoch in range(0, opt.crt_epoch):
         print('Epoch: {}'.format(epoch))
-        train(model, trainloader, optimizer, criterion, device)
-        acc, *_ = test(model, valloader, criterion, device)
+        train(model, trainloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {
@@ -298,15 +298,15 @@ def sensei(opt, model, device):
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
     for epoch in range(0, opt.crt_epoch):
         print('Epoch: {}'.format(epoch))
         trainset.selective_augment(model, sel_criterion, opt.batch_size, device)  # type: ignore
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=opt.batch_size, shuffle=True, num_workers=4
         )
-        train(model, trainloader, optimizer, criterion, device)
-        acc, *_ = test(model, valloader, criterion, device)
+        train(model, trainloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {
@@ -337,7 +337,7 @@ def apricot(opt, model, device):
     SUBMODEL_EPOCHS = 40
     subset_step = int((len(trainset) - SUBSET_SIZE) // NUM_SUBMODELS)
 
-    for sub_idx in tqdm(range(NUM_SUBMODELS), desc='rDLMs'):
+    for sub_idx in tqdm(range(NUM_SUBMODELS), desc='rDLMs') if opt.verbose else range(NUM_SUBMODELS):
         submodel_path = get_model_path(opt, folder='apricot', state=f'sub_{sub_idx}')
         if os.path.exists(submodel_path):
             continue
@@ -357,10 +357,10 @@ def apricot(opt, model, device):
         )
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
-        best_acc, *_ = test(submodel, valloader, criterion, device, desc='Baseline')
-        for epoch in tqdm(range(0, SUBMODEL_EPOCHS), desc='epochs'):
-            train(submodel, subloader, optimizer, criterion, device)
-            acc, *_ = test(submodel, valloader, criterion, device)
+        best_acc, *_ = test(submodel, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
+        for epoch in tqdm(range(0, SUBMODEL_EPOCHS), desc='epochs') if opt.verbose else range(SUBMODEL_EPOCHS):
+            train(submodel, subloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+            acc, *_ = test(submodel, valloader, criterion, device, tqdm_use=opt.verbose)
             if acc > best_acc:
                 print('Saving...')
                 state = {
@@ -384,13 +384,13 @@ def apricot(opt, model, device):
             trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
         )
         submodels_equals = []
-        for sub_idx in tqdm(range(NUM_SUBMODELS), desc='subModelPreds'):
+        for sub_idx in tqdm(range(NUM_SUBMODELS), desc='subModelPreds') if opt.verbose else range(NUM_SUBMODELS):
             submodel_path = get_model_path(opt, folder='apricot', state=f'sub_{sub_idx}')
             state = torch.load(submodel_path)
             submodel.load_state_dict(state['net'])
 
             equals = []
-            for inputs, targets in tqdm(seqloader, desc='Batch', leave=False):
+            for inputs, targets in tqdm(seqloader, desc='Batch', leave=False) if opt.verbose else seqloader:
                 inputs, targets = inputs.to(device), targets.to(device)
                 with torch.no_grad():
                     outputs = submodel(inputs)
@@ -416,7 +416,7 @@ def apricot(opt, model, device):
         model.parameters(),
         lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay
     )
-    best_acc, *_ = test(model, valloader, criterion, device)
+    best_acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
     best_weights = copy.deepcopy(model.state_dict())
 
     submodel_weights = []
@@ -431,7 +431,7 @@ def apricot(opt, model, device):
             torch.utils.data.RandomSampler(range(len(trainset))),
             batch_size=BATCH_SIZE, drop_last=False
         )
-        for indices in tqdm(sampler, desc='Sampler'):
+        for indices in tqdm(sampler, desc='Sampler') if opt.verbose else sampler:
             model.eval()
             base_weights = copy.deepcopy(model.state_dict())
 
@@ -464,15 +464,15 @@ def apricot(opt, model, device):
                     base_weights[key] = base_weights[key] + LEARNING_RATE * p_corr * correct_diff
 
             model.load_state_dict(base_weights)
-            acc, *_ = test(model, valloader, criterion, device, desc='Eval')
+            acc, *_ = test(model, valloader, criterion, device, desc='Eval', tqdm_use=opt.verbose)
             if acc > best_acc:
                 best_weights = copy.deepcopy(base_weights)
                 print('Saving {}'.format(acc))
                 torch.save({'net': best_weights}, get_model_path(opt, state='apricot'))
                 best_acc = acc
 
-            train(model, trainloader, optimizer, criterion, device)
-            acc, *_ = test(model, valloader, criterion, device, desc='Eval')
+            train(model, trainloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+            acc, *_ = test(model, valloader, criterion, device, desc='Eval', tqdm_use=opt.verbose)
             if acc > best_acc:
                 best_weights = copy.deepcopy(base_weights)
                 print('Saving {}'.format(acc))
@@ -502,7 +502,7 @@ def robot(opt, model, device):
         trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
     )
     fols = []
-    for inputs, targets in tqdm(seqloader, desc='FOL'):
+    for inputs, targets in tqdm(seqloader, desc='FOL') if opt.verbose else seqloader:
         cur_batch_size = targets.size(0)
 
         with torch.enable_grad():
@@ -537,11 +537,11 @@ def robot(opt, model, device):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
     RETRAIN_EPOCHS = 40
-    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
     for epoch in range(0, RETRAIN_EPOCHS):
         print('Epoch: {}'.format(epoch))
-        train(model, seqloader, optimizer, criterion, device)
-        acc, *_ = test(model, valloader, criterion, device)
+        train(model, seqloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {
@@ -572,7 +572,7 @@ def deepgini(opt, model, device):
         trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
     )
     ginis = []
-    for inputs, targets in tqdm(seqloader, desc='Gini'):
+    for inputs, targets in tqdm(seqloader, desc='Gini') if opt.verbose else seqloader:
         inputs, targets = inputs.to(device), targets.to(device)
 
         with torch.no_grad():
@@ -598,11 +598,11 @@ def deepgini(opt, model, device):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
     RETRAIN_EPOCHS = 40
-    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
     for epoch in range(0, RETRAIN_EPOCHS):
         print('Epoch: {}'.format(epoch))
-        train(model, seqloader, optimizer, criterion, device)
-        acc, *_ = test(model, valloader, criterion, device)
+        train(model, seqloader, optimizer, criterion, device, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {
@@ -619,11 +619,11 @@ def deepgini(opt, model, device):
 
 
 
-def augmix_train(net, train_loader, optimizer, scheduler, device, no_jsd=False):
+def augmix_train(net, train_loader, optimizer, scheduler, device, no_jsd=False, tqdm_use=True):
     """Train for one epoch."""
     net.train()
     loss_ema = 0.
-    for images, targets in tqdm(train_loader, desc='Train'):
+    for images, targets in tqdm(train_loader, desc='Train') if tqdm_use else train_loader:
         optimizer.zero_grad()
 
         if no_jsd:
@@ -678,11 +678,11 @@ def augmix(opt, model, device):
         optimizer, lr_lambda=lambda step: lr_min + (lr_max - lr_min) * 0.5 * (1 + np.cos(step / total_steps * np.pi))
     )
 
-    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
     for epoch in range(0, opt.crt_epoch):
         print('Epoch: {}'.format(epoch))
-        augmix_train(model, trainloader, optimizer, scheduler, device, no_jsd=False)
-        acc, *_ = test(model, valloader, criterion, device)
+        augmix_train(model, trainloader, optimizer, scheduler, device, no_jsd=False, tqdm_use=opt.verbose)
+        acc, *_ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
         if acc > best_acc:
             print('Saving...')
             state = {

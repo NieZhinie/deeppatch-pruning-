@@ -27,7 +27,7 @@ def blame_ratio_eval(opt, model, device):
         patch(opt, model2, device)
 
 
-def extract_feature_map(lname, model, dataloader, device):
+def extract_feature_map(lname, model, dataloader, device, tqdm_use=True):
     feature_map = []
 
     def _hook(module, finput, foutput):
@@ -39,7 +39,7 @@ def extract_feature_map(lname, model, dataloader, device):
     criterion = torch.nn.CrossEntropyLoss()
     base_acc, (pred_labels, trg_labels) = test(
         model, dataloader, criterion, device,
-        desc='Extract', return_label=True, tqdm_leave=False)
+        desc='Extract', return_label=True, tqdm_leave=False, tqdm_use=tqdm_use)
     feature_map = torch.cat(feature_map, dim=0)
 
     handle.remove()
@@ -53,8 +53,8 @@ def performance_loss(opt, model, device):
     model = model.to(device)
     model.eval()
     criterion = torch.nn.CrossEntropyLoss()
-    base_acc1, _ = test(model, valloader1, criterion, device)
-    base_acc2, _ = test(model, valloader2, criterion, device)
+    base_acc1, _ = test(model, valloader1, criterion, device, tqdm_use=opt.verbose)
+    base_acc2, _ = test(model, valloader2, criterion, device, tqdm_use=opt.verbose)
     base_acc = (base_acc1 + base_acc2)/2
 
     def _mask_out_channel(chn):
@@ -65,15 +65,15 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in tqdm(conv_names, desc='Modules'):
+    for lname in tqdm(conv_names, desc='Modules') if opt.verbose else conv_names:
         module = rgetattr(model, lname)
         perfloss = []
         accloss = []
         avgloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=opt.verbose):
+        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
             handle = module.register_forward_hook(_mask_out_channel(chn))
-            acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=opt.verbose)
-            acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=opt.verbose)
+            acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
+            acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
             perfloss.append(base_acc2 - acc2)
             accloss.append(base_acc1 - acc1)
             avgloss.append(base_acc - (acc1 + acc2)/2)
@@ -102,7 +102,7 @@ def performance_loss(opt, model, device):
     model = model.to(device)
     model.eval()
     criterion = torch.nn.CrossEntropyLoss()
-    base_acc, _ = test(model, valloader, criterion, device)
+    base_acc, _ = test(model, valloader, criterion, device, tqdm_use=opt.verbose)
 
     def _mask_out_channel(chn):
         def __hook(module, finput, foutput):
@@ -112,12 +112,12 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in tqdm(conv_names, desc='Modules'):
+    for lname in tqdm(conv_names, desc='Modules') if opt.verbose else conv_names:
         module = rgetattr(model, lname)
         perfloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False):
+        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
             handle = module.register_forward_hook(_mask_out_channel(chn))
-            acc, _ = test(model, valloader, criterion, device, tqdm_leave=False)
+            acc, _ = test(model, valloader, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
             perfloss.append(base_acc - acc)
             handle.remove()
 
@@ -139,13 +139,13 @@ def featuremap_swap(opt, model, device):
     model = model.to(device)
 
     criterion = torch.nn.CrossEntropyLoss()
-    base_acc, _ = test(model, valloader2, criterion, device, tqdm_leave=False)
+    base_acc, _ = test(model, valloader2, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
 
     suspicious = {}
     num_modules = len(list(model.modules()))
-    for lname, module in tqdm(model.named_modules(), total=num_modules, desc='Modules'):
+    for lname, module in tqdm(model.named_modules(), total=num_modules, desc='Modules') if opt.verbose else model.named_modules():
         if isinstance(module, nn.Conv2d):
-            fmaps, _, _ = extract_feature_map(lname, model, valloader1, device)
+            fmaps, _, _ = extract_feature_map(lname, model, valloader1, device, tqdm_use=opt.verbose)
 
             def _substitute_feature(filter_index):
                 def __hook(module, finput, foutput):
@@ -157,11 +157,11 @@ def featuremap_swap(opt, model, device):
                 return __hook
 
             recover = []
-            for fidx in tqdm(range(module.out_channels), desc='Filters', leave=False):
+            for fidx in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
                 handler = module.register_forward_hook(_substitute_feature(fidx))
                 global fmaps_idx
                 fmaps_idx = 0
-                swap_acc, _ = test(model, valloader2, criterion, device, tqdm_leave=False)
+                swap_acc, _ = test(model, valloader2, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
                 recover.append(swap_acc - base_acc)
                 handler.remove()
 

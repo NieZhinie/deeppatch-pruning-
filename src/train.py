@@ -7,10 +7,10 @@ from arguments import commparser as parser
 from utils import *
 
 
-def train(model, trainloader, optimizer, criterion, device, desc='Train'):
+def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
     model.train()
     train_loss, correct, total = 0, 0, 0
-    with tqdm(trainloader, desc=desc) as tepoch:
+    with tqdm(trainloader, desc=desc) if tqdm_use else trainloader as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
             inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
@@ -34,11 +34,11 @@ def train(model, trainloader, optimizer, criterion, device, desc='Train'):
 @torch.no_grad()
 def test(
         model, valloader, criterion, device,
-        desc='Evaluate', return_label=False, tqdm_leave=True):
+        desc='Evaluate', return_label=False, tqdm_leave=True, tqdm_use=True):
     model.eval()
     test_loss, correct, total = 0, 0, 0
     pred_labels, trg_labels = [], []
-    with tqdm(valloader, desc=desc, leave=tqdm_leave) as tepoch:
+    with tqdm(valloader, desc=desc, leave=tqdm_leave) if tqdm_use else valloader as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
