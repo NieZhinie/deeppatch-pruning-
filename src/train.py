@@ -10,15 +10,14 @@ from utils import *
 def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
     model.train()
     train_loss, correct, total = 0, 0, 0
-    for batch_idx, (inputs, targets) in enumerate(trainloader):
-        if tqdm_use:
-            tqdm.write(f'Train {batch_idx}')
-        inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
+    with tqdm(trainloader, desc=desc) if tqdm_use else trainloader as tepoch:
+        for batch_idx, (inputs, targets) in enumerate(tepoch):
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -38,12 +37,13 @@ def test(
     model.eval()
     test_loss, correct, total = 0, 0, 0
     pred_labels, trg_labels = [], []
-    for batch_idx, (inputs, targets) in enumerate(valloader):
-        if tqdm_use:
-            tqdm.write(f'Evaluate {batch_idx}')
-        inputs, targets = inputs.to(device), targets.to(device)
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
+    with valloader as tepoch:
+        for batch_idx, (inputs, targets) in enumerate(tepoch):
+            if tqdm_use:
+                tqdm.write(f'Evaluate {batch_idx}')
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
 
         test_loss += loss.item()
         _, predicted = outputs.max(1)
