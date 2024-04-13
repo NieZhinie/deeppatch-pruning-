@@ -10,8 +10,10 @@ from utils import *
 def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
     model.train()
     train_loss, correct, total = 0, 0, 0
-    with tqdm(trainloader, desc=desc) if tqdm_use else trainloader as tepoch:
+    with trainloader as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
+            if tqdm_use:
+                tqdm.write(f'Train {batch_idx}')
             inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -38,8 +40,10 @@ def test(
     model.eval()
     test_loss, correct, total = 0, 0, 0
     pred_labels, trg_labels = [], []
-    with tqdm(valloader, desc=desc, leave=tqdm_leave) if tqdm_use else valloader as tepoch:
+    with valloader as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
+            if tqdm_use:
+                tqdm.write(f'Evaluate {batch_idx}')
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)

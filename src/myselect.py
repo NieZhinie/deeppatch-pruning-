@@ -65,12 +65,16 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in tqdm(conv_names, desc='Modules') if opt.verbose else conv_names:
+    for lname in conv_names:
+        if opt.verbose:
+            tqdm.write(f'Modules {lname}')
         module = rgetattr(model, lname)
         perfloss = []
         accloss = []
         avgloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
+        for chn in range(module.out_channels):
+            if opt.verbose:
+                tqdm.write(f'Filters {chn}')
             handle = module.register_forward_hook(_mask_out_channel(chn))
             acc1, _ = test(model, valloader1, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
             acc2, _ = test(model, valloader2, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
@@ -112,10 +116,14 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in tqdm(conv_names, desc='Modules') if opt.verbose else conv_names:
+    for lname in conv_names:
+        if opt.verbose:
+            tqdm.write(f'Modules {lname}')
         module = rgetattr(model, lname)
         perfloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
+        for chn in range(module.out_channels):
+            if opt.verbose:
+                tqdm.write(f'Filters {chn}')
             handle = module.register_forward_hook(_mask_out_channel(chn))
             acc, _ = test(model, valloader, criterion, device, tqdm_leave=False, tqdm_use=opt.verbose)
             perfloss.append(base_acc - acc)
@@ -143,7 +151,9 @@ def featuremap_swap(opt, model, device):
 
     suspicious = {}
     num_modules = len(list(model.modules()))
-    for lname, module in tqdm(model.named_modules(), total=num_modules, desc='Modules') if opt.verbose else model.named_modules():
+    for lname, module in model.named_modules():
+        if opt.verbose:
+            tqdm.write(f'Modules {module} Total {num_modules}')
         if isinstance(module, nn.Conv2d):
             fmaps, _, _ = extract_feature_map(lname, model, valloader1, device, tqdm_use=opt.verbose)
 
@@ -157,7 +167,8 @@ def featuremap_swap(opt, model, device):
                 return __hook
 
             recover = []
-            for fidx in tqdm(range(module.out_channels), desc='Filters', leave=False) if opt.verbose else range(module.out_channels):
+            for fidx in range(module.out_channels):
+                tqdm.write(f'Filters {fidx}')
                 handler = module.register_forward_hook(_substitute_feature(fidx))
                 global fmaps_idx
                 fmaps_idx = 0

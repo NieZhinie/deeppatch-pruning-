@@ -337,7 +337,9 @@ def apricot(opt, model, device):
     SUBMODEL_EPOCHS = 40
     subset_step = int((len(trainset) - SUBSET_SIZE) // NUM_SUBMODELS)
 
-    for sub_idx in tqdm(range(NUM_SUBMODELS), desc='rDLMs') if opt.verbose else range(NUM_SUBMODELS):
+    for sub_idx in range(NUM_SUBMODELS):
+        if opt.verbose:
+            tqdm.write(f'rDLMs {sub_idx}')
         submodel_path = get_model_path(opt, folder='apricot', state=f'sub_{sub_idx}')
         if os.path.exists(submodel_path):
             continue
@@ -358,7 +360,9 @@ def apricot(opt, model, device):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
         best_acc, *_ = test(submodel, valloader, criterion, device, desc='Baseline', tqdm_use=opt.verbose)
-        for epoch in tqdm(range(0, SUBMODEL_EPOCHS), desc='epochs') if opt.verbose else range(SUBMODEL_EPOCHS):
+        for epoch in range(SUBMODEL_EPOCHS):
+            if opt.verbose:
+                tqdm.write(f'Epoch: {epoch}')
             train(submodel, subloader, optimizer, criterion, device, tqdm_use=opt.verbose)
             acc, *_ = test(submodel, valloader, criterion, device, tqdm_use=opt.verbose)
             if acc > best_acc:
@@ -384,13 +388,17 @@ def apricot(opt, model, device):
             trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
         )
         submodels_equals = []
-        for sub_idx in tqdm(range(NUM_SUBMODELS), desc='subModelPreds') if opt.verbose else range(NUM_SUBMODELS):
+        for sub_idx in range(NUM_SUBMODELS):
+            if opt.verbose:
+                tqdm.write(f'submodelPreds {sub_idx}')
             submodel_path = get_model_path(opt, folder='apricot', state=f'sub_{sub_idx}')
             state = torch.load(submodel_path)
             submodel.load_state_dict(state['net'])
 
             equals = []
-            for inputs, targets in tqdm(seqloader, desc='Batch', leave=False) if opt.verbose else seqloader:
+            for inputs, targets in seqloader:
+                if opt.verbose:
+                    tqdm.write(f'Batch: {inputs.size(0)}')
                 inputs, targets = inputs.to(device), targets.to(device)
                 with torch.no_grad():
                     outputs = submodel(inputs)
@@ -431,7 +439,9 @@ def apricot(opt, model, device):
             torch.utils.data.RandomSampler(range(len(trainset))),
             batch_size=BATCH_SIZE, drop_last=False
         )
-        for indices in tqdm(sampler, desc='Sampler') if opt.verbose else sampler:
+        for indices in sampler:
+            if opt.verbose:
+                tqdm.write(f'Sampler: {indices}')
             model.eval()
             base_weights = copy.deepcopy(model.state_dict())
 
@@ -502,7 +512,9 @@ def robot(opt, model, device):
         trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
     )
     fols = []
-    for inputs, targets in tqdm(seqloader, desc='FOL') if opt.verbose else seqloader:
+    for inputs, targets in seqloader:
+        if opt.verbose:
+            tqdm.write(f'FOL: {inputs.size(0)}')
         cur_batch_size = targets.size(0)
 
         with torch.enable_grad():
@@ -572,7 +584,9 @@ def deepgini(opt, model, device):
         trainset, batch_size=opt.batch_size, shuffle=False, num_workers=4
     )
     ginis = []
-    for inputs, targets in tqdm(seqloader, desc='Gini') if opt.verbose else seqloader:
+    for inputs, targets in seqloader:
+        if opt.verbose:
+            tqdm.write(f'Gini: {inputs.size(0)}')
         inputs, targets = inputs.to(device), targets.to(device)
 
         with torch.no_grad():
@@ -623,7 +637,9 @@ def augmix_train(net, train_loader, optimizer, scheduler, device, no_jsd=False, 
     """Train for one epoch."""
     net.train()
     loss_ema = 0.
-    for images, targets in tqdm(train_loader, desc='Train') if tqdm_use else train_loader:
+    for images, targets in train_loader:
+        if tqdm_use:
+            tqdm.write(f'Train: {images.size(0)}')
         optimizer.zero_grad()
 
         if no_jsd:
