@@ -10,7 +10,7 @@ from utils import *
 def train(model, trainloader, optimizer, criterion, device, desc='Train', tqdm_use=True):
     model.train()
     train_loss, correct, total = 0, 0, 0
-    with tqdm(trainloader, desc=desc) if tqdm_use else trainloader as tepoch:
+    with tqdm(trainloader, desc=desc) as tepoch:
         for batch_idx, (inputs, targets) in enumerate(tepoch):
             inputs, targets = inputs.to(device), targets.to(device)
             optimizer.zero_grad()
