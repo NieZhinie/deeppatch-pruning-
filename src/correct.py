@@ -59,7 +59,7 @@ class ConcatCorrect(nn.Module):
         out = self.conv(x)
         if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        if len(self.indices) > 0:
+        if self.indices is not None:
             out[:, self.indices] = self.cru(out[:, self.indices])
         if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
@@ -86,7 +86,7 @@ class ReplaceCorrect(nn.Module):
         out = self.conv(x)
         if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        if len(self.indices) > 0:
+        if self.indices is not None:
             out[:, self.indices] = self.cru(x)
         if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
@@ -105,7 +105,7 @@ class NoneCorrect(nn.Module):
         out = self.conv(x)
         if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        if len(self.indices) > 0:
+        if self.indices is not None:
             out[:, self.indices] = 0
         # if self.prune_indices is not None:
         #     out[:, self.prune_indices] = 0
@@ -124,14 +124,14 @@ def construct_model(opt, model, patch=True):
         num_susp = int(module.out_channels * opt.susp_ratio)
         num_prune = int(module.out_channels * opt.prune_ratio)
         if opt.susp_side == 'front':
-            indices = sus_filters[layer_name][opt.patch_indices][:num_susp]
-            prune_indices = sus_filters[layer_name][opt.prune_indices][num_prune:] if opt.prune else None
+            indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
+            prune_indices = sus_filters[layer_name][opt.prune_indices][num_prune:] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'rear':
-            indices = sus_filters[layer_name][opt.patch_indices][-num_susp:]
-            prune_indices = sus_filters[layer_name][opt.prune_indices][:-num_prune] if opt.prune else None
+            indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
+            prune_indices = sus_filters[layer_name][opt.prune_indices][:-num_prune] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'random':
-            indices = random.sample(range(module.out_channels), num_susp)
-            prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune else None
+            indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
+            prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune and num_prune > 0 else None
         else:
             raise ValueError('Invalid suspicious side')
 
@@ -150,32 +150,56 @@ def construct_model(opt, model, patch=True):
         rsetattr(model, layer_name, correct_module)
     return model
 
+def fine_tune(opt, model, device):
+    _, trainloader = load_dataset(opt, split='train')
+    _, valloader = load_dataset(opt, split='val')
 
-def extract_indices(model):
+    indices = {}
+    for name, module in model.named_modules():
+        if isinstance(module, ConcatCorrect) \
+                or isinstance(module, ReplaceCorrect) \
+                or isinstance(module, NoneCorrect):
+            indices[name] = module.indices
+            module.indices = None
+
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        # model.parameters(),  # correction unit + finetune
+        lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+
+    model = model.to(device)
+    best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
+    for epoch in range(opt.crt_epoch):
+        print('Finetune Epoch: {}'.format(epoch))
+        train(model, trainloader, optimizer, criterion, device)
+        acc, *_ = test(model, valloader, criterion, device)
+        scheduler.step()
+        if acc > best_acc:
+            best_acc = acc
+    print('[info] the best finetune accuracy is {:.4f}%'.format(best_acc))
+    model = model.to('cpu')
+
+    for name, module in model.named_modules():
+        if isinstance(module, ConcatCorrect) \
+                or isinstance(module, ReplaceCorrect) \
+                or isinstance(module, NoneCorrect):
+            module.indices = indices[name]  
+
+def extract_info(model, info_type):
     info = {}
     for n, m in model.named_modules():
         if isinstance(m, ConcatCorrect) \
-                or isinstance(m, ReplaceCorrect) \
-                or isinstance(m, NoneCorrect):
-            info[n] = m.indices
-    return info
-
-def extract_prune_indices(model):
-    info = {}
-    for n, m in model.named_modules():
-        if isinstance(m, ConcatCorrect) \
-                or isinstance(m, ReplaceCorrect) \
-                or isinstance(m, NoneCorrect):
-            info[n] = m.prune_indices
-    return info
-
-def extract_order(model):
-    info = {}
-    for n, m in model.named_modules():
-        if isinstance(m, ConcatCorrect) \
-                or isinstance(m, ReplaceCorrect) \
-                or isinstance(m, NoneCorrect):
-            info[n] = m.order
+            or isinstance(m, ReplaceCorrect) \
+            or isinstance(m, NoneCorrect):
+            if info_type == "indices":
+                info[n] = m.indices
+            elif info_type == "prune_indices":
+                info[n] = m.prune_indices
+            elif info_type == "order":
+                info[n] = m.order
     return info
 
 @dispatcher.register('patch')
@@ -197,6 +221,10 @@ def patch(opt, model, device):
         # _, valloader = load_dataset(opt, split='val')
 
     model = construct_model(opt, model)
+   
+    if opt.finetune is True:
+        fine_tune(opt, model, device)
+
     model = model.to(device)
 
     for name, module in model.named_modules():
@@ -251,9 +279,9 @@ def patch(opt, model, device):
                 'optim': optimizer.state_dict(),
                 'sched': scheduler.state_dict(),
                 'acc': acc,
-                'indices': extract_indices(model),
-                'prune_indices': extract_prune_indices(model),
-                'order': extract_order(model)
+                'indices': extract_info(model, 'indices'),
+                'prune_indices': extract_info(model, 'prune_indices'),
+                'order': extract_info(model, 'order')
             }
             torch.save(state, get_model_path(opt, state=f'patch_{opt.fs_method}'))
             # torch.save(state, get_model_path(opt, state=f'patch_{opt.fs_method}_finetune'))
