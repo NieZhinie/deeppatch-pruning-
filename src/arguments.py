@@ -27,8 +27,8 @@ noises = ['gaussion']
 crtmethods = ['patch', 'finetune', 'sensei', 'apricot', 'robot', 'gini', 'augmix', 'none']
 fsmethods = ['featswap', 'perfloss', 'ratioestim', 'avgloss']
 ptmethods = ['NULL', 'DC', 'DP', 'DP-s', 'DP-SS', 'SS-DP']
-pporder = ['prune', 'patch']
 indices = ['indices', 'accindices', 'avgindices']
+order = ['first_patch','first_prune']
 
 commparser = argparse.ArgumentParser(add_help=False)
 commparser.add_argument('--data_dir', default='data')
@@ -55,13 +55,13 @@ advparser.add_argument('-f', '--fs_method', type=str, default=None, required='pa
 advparser.add_argument('-p', '--pt_method', type=str, default=None, required='patch' in sys.argv, choices=ptmethods)
 advparser.add_argument('--prune', action='store_true')
 advparser.add_argument('--crt_epoch', type=int, default=20)
-advparser.add_argument('--susp_ratio', type=float, default=0.1)
-advparser.add_argument('--prune_ratio', type=float, default=0.1)
+advparser.add_argument('--susp_ratio', type=float, default=0.25)
+advparser.add_argument('--prune_ratio', type=float, default=0.25)
 advparser.add_argument('--susp_side', type=str, default='front', choices=['front', 'rear', 'random'])
 advparser.add_argument('--robust_threshold', type=float, default=1e-3)
 advparser.add_argument('--popsize', type=int, default=10)
 advparser.add_argument('--crossover_prob', type=float, default=0.4)
-advparser.add_argument('--pp_order', type=str, default='prune', choices=pporder)
+advparser.add_argument('--pporder', type=str, default='first_patch', choices=order)
 advparser.add_argument('--patch_indices', type=str, default='indices', choices=indices)
 advparser.add_argument('--prune_indices', type=str, default='accindices', choices=indices)
 

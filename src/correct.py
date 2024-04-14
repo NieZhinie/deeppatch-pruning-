@@ -46,32 +46,28 @@ class CorrectionUnit(nn.Module):
 
 
 class ConcatCorrect(nn.Module):
-    def __init__(self, conv_layer, indices, prune_indices=None, order=True):
+    def __init__(self, conv_layer, indices, prune_indices, order):
         super(ConcatCorrect, self).__init__()
         self.indices = indices
         self.prune_indices = prune_indices
         self.order = order
-        self.others = [i for i in range(conv_layer.out_channels)
-                       if i not in indices + prune_indices]
         self.conv = conv_layer
         num_filters = len(indices)
         self.cru = CorrectionUnit(num_filters, num_filters, 3)
 
     def forward(self, x):
         out = self.conv(x)
-        if self.prune_indices is not None and self.order:
+        if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        out_lower = out[:, self.others]
-        out_upper = self.cru(out[:, self.indices])
-        out = torch.cat([out_lower, out_upper], dim=1)
+        if len(self.indices) > 0:
+            out[:, self.indices] = self.cru(out[:, self.indices])
         if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
-        #  out[:, self.indices] = self.cru(out[:, self.indices])
         return out
 
 
 class ReplaceCorrect(nn.Module):
-    def __init__(self, conv_layer, indices, prune_indices=None, order=True):
+    def __init__(self, conv_layer, indices, prune_indices, order):
         super(ReplaceCorrect, self).__init__()
         self.indices = indices
         self.prune_indices = prune_indices
@@ -88,16 +84,17 @@ class ReplaceCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
-        if self.prune_indices is not None and self.order:
+        if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        out[:, self.indices] = self.cru(x)
+        if len(self.indices) > 0:
+            out[:, self.indices] = self.cru(x)
         if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
         return out
 
 
 class NoneCorrect(nn.Module):
-    def __init__(self, conv_layer, indices, prune_indices=None, order=True):
+    def __init__(self, conv_layer, indices, prune_indices, order):
         super(NoneCorrect, self).__init__()
         self.indices = indices
         self.prune_indices = prune_indices
@@ -106,9 +103,12 @@ class NoneCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
-        if self.prune_indices is not None:
+        if self.prune_indices is not None and self.order == 'first_prune':
             out[:, self.prune_indices] = 0
-        out[:, self.indices] = 0
+        if len(self.indices) > 0:
+            out[:, self.indices] = 0
+        # if self.prune_indices is not None:
+        #     out[:, self.prune_indices] = 0
         return out
 
 
@@ -141,15 +141,9 @@ def construct_model(opt, model, patch=True):
         if patch is False:
             correct_module = NoneCorrect(module, indices, prune_indices)
         elif opt.pt_method == 'DC':
-            if opt.pp_order == 'patch':
-                correct_module = ConcatCorrect(module, indices, prune_indices, order=False)
-            else:
-                correct_module = ReplaceCorrect(module, indices, prune_indices) 
+            correct_module = ConcatCorrect(module, indices, prune_indices) 
         elif 'DP' in opt.pt_method:
-            if opt.pp_order == 'patch':
-                correct_module = ReplaceCorrect(module, indices, prune_indices, order=False)
-            else:
-                correct_module = ReplaceCorrect(module, indices, prune_indices)
+            correct_module = ReplaceCorrect(module, indices, prune_indices)
         else:
             raise ValueError('Invalid correct type')
             
@@ -166,6 +160,23 @@ def extract_indices(model):
             info[n] = m.indices
     return info
 
+def extract_prune_indices(model):
+    info = {}
+    for n, m in model.named_modules():
+        if isinstance(m, ConcatCorrect) \
+                or isinstance(m, ReplaceCorrect) \
+                or isinstance(m, NoneCorrect):
+            info[n] = m.prune_indices
+    return info
+
+def extract_order(model):
+    info = {}
+    for n, m in model.named_modules():
+        if isinstance(m, ConcatCorrect) \
+                or isinstance(m, ReplaceCorrect) \
+                or isinstance(m, NoneCorrect):
+            info[n] = m.order
+    return info
 
 @dispatcher.register('patch')
 def patch(opt, model, device):
@@ -218,6 +229,8 @@ def patch(opt, model, device):
                     or isinstance(m, ReplaceCorrect) \
                     or isinstance(m, NoneCorrect):
                 m.indices = ckp['indices'][n]
+                m.prune_indices = ckp['prune_indices'][n]
+                m.order = ckp['order'][n]
     else:
         best_acc, *_ = test(model, valloader, criterion, device, desc='Baseline')
 
@@ -238,7 +251,9 @@ def patch(opt, model, device):
                 'optim': optimizer.state_dict(),
                 'sched': scheduler.state_dict(),
                 'acc': acc,
-                'indices': extract_indices(model)
+                'indices': extract_indices(model),
+                'prune_indices': extract_prune_indices(model),
+                'order': extract_order(model)
             }
             torch.save(state, get_model_path(opt, state=f'patch_{opt.fs_method}'))
             # torch.save(state, get_model_path(opt, state=f'patch_{opt.fs_method}_finetune'))

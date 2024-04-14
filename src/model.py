@@ -1,5 +1,8 @@
 import torch
 import torchvision
+import sys
+sys.path.append(".")
+sys.path.append("vendor/playground")
 
 from utils import get_model_path
 
