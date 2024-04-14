@@ -139,11 +139,11 @@ def construct_model(opt, model, patch=True):
             continue
 
         if patch is False:
-            correct_module = NoneCorrect(module, indices, prune_indices)
+            correct_module = NoneCorrect(module, indices, prune_indices, opt.pporder)
         elif opt.pt_method == 'DC':
-            correct_module = ConcatCorrect(module, indices, prune_indices) 
+            correct_module = ConcatCorrect(module, indices, prune_indices, opt.pporder) 
         elif 'DP' in opt.pt_method:
-            correct_module = ReplaceCorrect(module, indices, prune_indices)
+            correct_module = ReplaceCorrect(module, indices, prune_indices, opt.pporder)
         else:
             raise ValueError('Invalid correct type')
             

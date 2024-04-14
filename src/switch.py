@@ -47,9 +47,10 @@ class AdvWrapper(nn.Module):
                     out[:, self.module.prune_indices] = 0
                 out = (out, repl, self.module.indices)
             elif indicator is True:
-                if self.module.prune_indices is not None and self.module.order:
+                if self.module.prune_indices is not None and self.module.order == 'first_prune':
                     out[:, self.module.prune_indices] = 0
-                out[:, self.module.indices] = repl
+                if len(self.module.indices) > 0:
+                    out[:, self.module.indices] = repl
                 if self.module.prune_indices is not None:
                     out[:, self.module.prune_indices] = 0
 
