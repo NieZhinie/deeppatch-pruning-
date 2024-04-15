@@ -125,10 +125,10 @@ def construct_model(opt, model, patch=True):
         num_prune = int(module.out_channels * opt.prune_ratio)
         if opt.susp_side == 'front':
             indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
-            prune_indices = sus_filters[layer_name][opt.prune_indices][num_prune:] if opt.prune and num_prune > 0 else None
+            prune_indices = sus_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'rear':
             indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
-            prune_indices = sus_filters[layer_name][opt.prune_indices][:-num_prune] if opt.prune and num_prune > 0 else None
+            prune_indices = sus_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune and num_prune > 0 else None
