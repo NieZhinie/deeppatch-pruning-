@@ -43,9 +43,7 @@ class AdvWrapper(nn.Module):
             repl = self.module.cru(x)
 
             if indicator is None:
-                if self.module.prune_indices is not None:
-                    out[:, self.module.prune_indices] = 0
-                out = (out, repl, self.module.indices)
+                out = (out, repl, self.module.indices, self.module.prune_indices, self.module.order)
             elif indicator is True:
                 if self.module.prune_indices is not None and self.module.order == 'first_prune':
                     out[:, self.module.prune_indices] = 0
@@ -56,9 +54,16 @@ class AdvWrapper(nn.Module):
 
         elif isinstance(self.module, nn.BatchNorm2d):
             if indicator is None:
-                p_out, p_repl, p_indices = x
-                out1 = self.std_bn(p_out)
-                p_out[:, p_indices] = p_repl
+                p_out, p_repl, p_indices, p_prune_indices, p_prune_order = x
+                no_p_out = p_out.clone()
+                no_p_out[:, p_prune_indices] = 0
+                out1 = self.std_bn(no_p_out)
+                if p_prune_indices is not None and p_prune_order == 'first_prune':
+                    p_out[:, p_prune_indices] = 0
+                if len(p_indices) > 0:
+                    p_out[:, p_indices] = p_repl
+                if p_prune_indices is not None:
+                    p_out[:, p_prune_indices] = 0
                 out2 = self.module(p_out)
                 self.dnc = self.diffenentiate_activation(out1[:, p_indices], out2[:, p_indices])
                 if self.dnc.lt(self.boundary).sum().div(p_out.size(0)).gt(0.5):
@@ -93,7 +98,9 @@ def switch_on_the_fly(opt, model, device):
     # Patch
     first_repl = True
     for name, module in model.named_modules():
-        if isinstance(module, ReplaceCorrect):
+        if isinstance(module, ReplaceCorrect)\
+                or isinstance(module, ConcatCorrect)\
+                or isinstance(module, NoneCorrect):
             new_module = AdvWrapper(module)
             if first_repl is True:
                 new_module.register_forward_pre_hook(_clean_indicator_hook)
