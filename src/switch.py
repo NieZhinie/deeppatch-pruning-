@@ -59,7 +59,8 @@ class AdvWrapper(nn.Module):
             if indicator is None:
                 p_out, p_repl, p_indices, p_prune_indices, p_prune_order = x
                 no_p_out = p_out.clone()
-                no_p_out[:, p_prune_indices] = 0
+                if p_prune_indices is not None:
+                    no_p_out[:, p_prune_indices] = 0
                 out1 = self.std_bn(no_p_out)
                 if p_prune_indices is not None and p_prune_order == 'first_prune':
                     p_out[:, p_prune_indices] = 0
