@@ -51,6 +51,9 @@ class AdvWrapper(nn.Module):
                     out[:, self.module.indices] = repl
                 if self.module.prune_indices is not None:
                     out[:, self.module.prune_indices] = 0
+            else:
+                if self.module.prune_indices is not None:
+                    out[:, self.module.prune_indices] = 0
 
         elif isinstance(self.module, nn.BatchNorm2d):
             if indicator is None:
