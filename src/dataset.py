@@ -11,6 +11,9 @@ from sklearn.model_selection import train_test_split
 
 from tinyimagenet import TinyImageNetDataset
 from augmentor import GeneticAugmentor, NeighborAugmentor, RandomAugmentor
+import sys
+cur = '/kaggle/working/deeppatch-pruning-'
+sys.path.append(cur)
 from vendor.augmix import augmentations
 from utils import cache_object
 
