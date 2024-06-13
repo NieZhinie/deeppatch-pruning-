@@ -96,6 +96,8 @@ def performance_loss(opt, model, device):
 
     return suspicious
 
+# 
+
 @dispatcher.register('perfloss')
 def performance_loss(opt, model, device):
     _, valloader = load_dataset(opt, split='val', noise=True, noise_type='expand')
@@ -112,12 +114,12 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in tqdm(conv_names, desc='Modules'):
+    for lname in conv_names:
         module = rgetattr(model, lname)
         perfloss = []
-        for chn in tqdm(range(module.out_channels), desc='Filters', leave=False):
+        for chn in range(module.out_channels):
             handle = module.register_forward_hook(_mask_out_channel(chn))
-            acc, _ = test(model, valloader, criterion, device, tqdm_leave=True)
+            acc, _ = test(model, valloader, criterion, device)
             perfloss.append(base_acc - acc)
             handle.remove()
 
@@ -130,7 +132,7 @@ def performance_loss(opt, model, device):
 
     return suspicious
 
-
+import numpy as np
 @dispatcher.register('distweight')
 def distance_weight(opt, model, device):
     model = model.to(device)
@@ -148,13 +150,14 @@ def distance_weight(opt, model, device):
             for j in range(i + 1, num_filters):
                 diff = torch.abs(filters[i] - filters[j])
                 distance = torch.sum(diff) / (filter_size * filter_size)
+                distance = round(distance.item(), 4) 
                 distances[i, j] = distance
                 distances[j, i] = distance
 
         score = torch.sum(distances, dim=1)
         indices = sorted(range(num_filters), key=lambda i: score[i])
         distweight[lname] = {
-            'score': score,
+            'score': score.tolist(),
             'indices': indices
         }
 
@@ -162,11 +165,13 @@ def distance_weight(opt, model, device):
         print(distances)
 
         distmatrix[lname] = {
-            'matrix': distances
+            'matrix': distances.numpy().tolist()
         }
 
 
     return distweight,distmatrix
+
+
 
 @dispatcher.register('featswap')
 @torch.no_grad()
@@ -227,7 +232,7 @@ def main():
     if 'ratioestim' in opt.fs_method:
         return
     if 'distweight' in opt.fs_method:
-        result_name = 'distweight.json'
+        result_name = 'distweight2.json'
     
     
     export_object(opt, result_name, opt.fs_method, result)
