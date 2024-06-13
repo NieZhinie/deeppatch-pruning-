@@ -117,7 +117,7 @@ def performance_loss(opt, model, device):
         perfloss = []
         for chn in tqdm(range(module.out_channels), desc='Filters', leave=False):
             handle = module.register_forward_hook(_mask_out_channel(chn))
-            acc, _ = test(model, valloader, criterion, device, tqdm_leave=False)
+            acc, _ = test(model, valloader, criterion, device, tqdm_leave=True)
             perfloss.append(base_acc - acc)
             handle.remove()
 
@@ -130,6 +130,43 @@ def performance_loss(opt, model, device):
 
     return suspicious
 
+
+@dispatcher.register('distweight')
+def distance_weight(opt, model, device):
+    model = model.to(device)
+    conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
+    distweight = {}
+    distmatrix = {}
+    for lname in tqdm(conv_names, desc='Modules'):
+        module = rgetattr(model, lname)
+        filters = module.weight.data
+        num_filters = filters.size(0)
+        filter_size = filters.size(1)
+        distances = torch.zeros(num_filters, num_filters)
+
+        for i in tqdm(range(num_filters), desc='Filters'):
+            for j in range(i + 1, num_filters):
+                diff = torch.abs(filters[i] - filters[j])
+                distance = torch.sum(diff) / (filter_size * filter_size)
+                distances[i, j] = distance
+                distances[j, i] = distance
+
+        score = torch.sum(distances, dim=1)
+        indices = sorted(range(num_filters), key=lambda i: score[i])
+        distweight[lname] = {
+            'score': score,
+            'indices': indices
+        }
+
+        print(f"Distance matrix for {lname}:")
+        print(distances)
+
+        distmatrix[lname] = {
+            'matrix': distances
+        }
+
+
+    return distweight,distmatrix
 
 @dispatcher.register('featswap')
 @torch.no_grad()
@@ -184,10 +221,15 @@ def main():
     model = load_model(opt, pretrained=True)
 
     result = dispatcher(opt, model, device)
-    if 'ratioestim' in opt.fs_method:
-        return
 
     result_name = 'susp_filters.json'
+    
+    if 'ratioestim' in opt.fs_method:
+        return
+    if 'distweight' in opt.fs_method:
+        result_name = 'distweight.json'
+    
+    
     export_object(opt, result_name, opt.fs_method, result)
 
 
