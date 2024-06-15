@@ -113,9 +113,17 @@ class NoneCorrect(nn.Module):
 
 
 def construct_model(opt, model, patch=True):
+    # sus_filters = json.load(open(os.path.join(
+    #     opt.output_dir, opt.dataset, opt.model, f'susp_filters_{opt.fs_method}.json'
+    # ))) if opt.susp_side in ('front', 'rear') else {}
+
     sus_filters = json.load(open(os.path.join(
-        opt.output_dir, opt.dataset, opt.model, f'susp_filters_{opt.fs_method}.json'
+        opt.output_dir, opt.dataset, opt.model, 'susp_filters_perfloss.json'
     ))) if opt.susp_side in ('front', 'rear') else {}
+
+    prune_filters = json.load(open(os.path.join(
+        opt.output_dir, opt.dataset, opt.model, 'susp_filters_distweight.json'
+    )))
 
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
     for layer_name in conv_names:
@@ -125,10 +133,10 @@ def construct_model(opt, model, patch=True):
         num_prune = int(module.out_channels * opt.prune_ratio)
         if opt.susp_side == 'front':
             indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
-            prune_indices = sus_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
+            prune_indices = prune_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'rear':
             indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
-            prune_indices = sus_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
         elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune and num_prune > 0 else None
