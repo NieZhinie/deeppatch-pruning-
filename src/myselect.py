@@ -157,8 +157,8 @@ def distance_weight(opt, model, device):
         score = torch.sum(distances, dim=1)
         indices = sorted(range(num_filters), key=lambda i: score[i])
         distweight[lname] = {
-            'score': score.tolist(),
-            'indices': indices
+            'accscore': score.tolist(),
+            'accindices': indices
         }
 
         print(f"Distance matrix for {lname}:")
