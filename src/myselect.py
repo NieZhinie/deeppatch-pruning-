@@ -231,8 +231,8 @@ def main():
     
     if 'ratioestim' in opt.fs_method:
         return
-    if 'distweight' in opt.fs_method:
-        result_name = 'distweight2.json'
+    # if 'distweight' in opt.fs_method:
+    #     result_name = 'distweight2.json'
     
     
     export_object(opt, result_name, opt.fs_method, result)
