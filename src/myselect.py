@@ -114,7 +114,7 @@ def performance_loss(opt, model, device):
 
     suspicious = {}
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
-    for lname in conv_names[50:]:
+    for lname in conv_names[49]:
         module = rgetattr(model, lname)
         perfloss = []
         for chn in range(module.out_channels):
