@@ -166,9 +166,9 @@ def construct_model(opt, model, patch=True):
             indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
             indices = indices[:num_susp] if num_susp > 0 else None
           elif opt.susp_side == 'rear':
-            indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
-            prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
-            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune] if opt.prune and num_prune > 0 else None
+            indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
+            indices = indices[-num_susp] if num_susp > 0 else None
           elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             # prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
