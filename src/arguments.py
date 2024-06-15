@@ -28,7 +28,7 @@ crtmethods = ['patch', 'finetune', 'sensei', 'apricot', 'robot', 'gini', 'augmix
 fsmethods = ['featswap', 'perfloss', 'ratioestim', 'avgloss', 'distweight']
 ptmethods = ['NULL', 'DC', 'DP', 'DP-s', 'DP-SS', 'SS-DP']
 indices = ['indices', 'accindices', 'avgindices']
-order = ['first_patch','first_prune']
+order = ['first_patch','first_prune','first_patch_no_intersection','first_prune_no_intersection']
 
 commparser = argparse.ArgumentParser(add_help=False)
 commparser.add_argument('--data_dir', default='data')
