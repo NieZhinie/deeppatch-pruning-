@@ -169,7 +169,7 @@ def distance_weight(opt, model, device):
         }
 
 
-    return distweight,distmatrix
+    return distweight
 
 
 
