@@ -66,6 +66,7 @@ class ConcatCorrect(nn.Module):
         return out
 
 
+
 class ReplaceCorrect(nn.Module):
     def __init__(self, conv_layer, indices, prune_indices, order):
         super(ReplaceCorrect, self).__init__()
@@ -85,11 +86,17 @@ class ReplaceCorrect(nn.Module):
     def forward(self, x):
         out = self.conv(x)
         if self.prune_indices is not None and self.order == 'first_prune':
-            out[:, self.prune_indices] = 0
-        if self.indices is not None:
+          out[:, self.prune_indices] = 0
+          if self.indices is not None:
             out[:, self.indices] = self.cru(x)
-        if self.prune_indices is not None:
+        elif self.indices is not None and self.order == 'first_patch':
+          out[:, self.indices] = self.cru(x)
+          if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
+        elif self.prune_indices is not None:
+          out[:, self.prune_indices] = 0
+        elif self.indices is not None:
+          out[:, self.indices] = self.cru(x)
         return out
 
 
