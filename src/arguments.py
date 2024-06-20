@@ -65,4 +65,4 @@ advparser.add_argument('--crossover_prob', type=float, default=0.4)
 advparser.add_argument('--pporder', type=str, default='first_patch', choices=order)
 advparser.add_argument('--patch_indices', type=str, default='indices', choices=indices)
 advparser.add_argument('--prune_indices', type=str, default='accindices', choices=indices)
-
+advparser.add_argument('--prune_side', type=str, default='front', choices=['front', 'rear', 'random'])
