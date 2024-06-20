@@ -85,12 +85,14 @@ class ReplaceCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
-        if self.prune_indices is not None and self.order == 'first_prune':
-          out[:, self.prune_indices] = 0
+        if self.order == 'first_prune':
+          if self.prune_indices is not None:
+            out[:, self.prune_indices] = 0
           if self.indices is not None:
             out[:, self.indices] = self.cru(x)
-        elif self.indices is not None and self.order == 'first_patch':
-          out[:, self.indices] = self.cru(x)
+        elif self.order == 'first_patch':
+          if self.indices is not None:
+            out[:, self.indices] = self.cru(x)
           if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
         elif self.prune_indices is not None or self.indices is not None:
