@@ -122,6 +122,7 @@ class NoneCorrect(nn.Module):
         return out
 
 
+
 def construct_model(opt, model, patch=True):
     # sus_filters = json.load(open(os.path.join(
     #     opt.output_dir, opt.dataset, opt.model, f'susp_filters_{opt.fs_method}.json'
@@ -142,43 +143,52 @@ def construct_model(opt, model, patch=True):
         num_susp = int(module.out_channels * opt.susp_ratio)
         num_prune = int(module.out_channels * opt.prune_ratio)
         if opt.pporder=='first_patch'or opt.pporder=='first_prune':
-          if opt.susp_side == 'front':
+          if opt.susp_side == 'front' and opt.prune_side=='front':
             indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
             prune_indices = prune_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
-          elif opt.susp_side == 'rear':
+          elif opt.susp_side == 'rear' and opt.prune_side=='rear':
             indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
             prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+          elif opt.susp_side == 'front' and opt.prune_side=='rear':
+            indices = sus_filters[layer_name][opt.patch_indices][:num_susp:] if num_susp > 0 else None
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None       
           elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune and num_prune > 0 else None
           else:
             raise ValueError('Invalid suspicious side')
-        
-        if opt.pporder=='first_patch_no_intersection':
-          if opt.susp_side == 'front':
+        elif opt.pporder=='first_patch_no_intersection':
+          if opt.susp_side == 'front'and opt.prune_side=='front':
             indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
             prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
             prune_indices = prune_indices[:num_prune] if opt.prune and num_prune > 0 else None
-          elif opt.susp_side == 'rear':
+          elif opt.susp_side == 'rear' and opt.prune_side=='rear':
             indices = sus_filters[layer_name][opt.patch_indices][-num_susp:] if num_susp > 0 else None
             prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
-            prune_indices = prune_indices[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            prune_indices = prune_indices[-num_prune:] if opt.prune and num_prune > 0 else None
+          elif opt.susp_side == 'front' and opt.prune_side=='rear':
+            indices = sus_filters[layer_name][opt.patch_indices][:num_susp] if num_susp > 0 else None
+            prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
+            prune_indices = prune_indices[-num_prune:] if opt.prune and num_prune > 0 else None
           elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             # prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
             prune_indices = random.sample(range(module.out_channels), num_prune) if opt.prune and num_prune > 0 else None
           else:
             raise ValueError('Invalid suspicious side')
-
-        if opt.pporder=='first_prune_no_intersection':
-          if opt.susp_side == 'front':
+        elif opt.pporder=='first_prune_no_intersection':
+          if opt.susp_side == 'front' and opt.prune_side=='front':
             prune_indices = prune_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
             indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
             indices = indices[:num_susp] if num_susp > 0 else None
-          elif opt.susp_side == 'rear':
-            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune] if opt.prune and num_prune > 0 else None
+          elif opt.susp_side == 'rear'and opt.prune_side=='rear':
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
             indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
-            indices = indices[-num_susp] if num_susp > 0 else None
+            indices = indices[-num_susp:] if num_susp > 0 else None
+          elif opt.susp_side == 'front'and opt.prune_side=='rear':
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
+            indices = indices[:num_susp] if num_susp > 0 else None
           elif opt.susp_side == 'random':
             indices = random.sample(range(module.out_channels), num_susp) if num_susp > 0 else None
             # prune_indices = [idx for idx in prune_filters[layer_name][opt.prune_indices] if idx not in indices]
@@ -194,11 +204,16 @@ def construct_model(opt, model, patch=True):
         elif opt.pt_method == 'DC':
             correct_module = ConcatCorrect(module, indices, prune_indices, opt.pporder) 
         elif 'DP' in opt.pt_method:
+            # print('11')
             correct_module = ReplaceCorrect(module, indices, prune_indices, opt.pporder)
+            # print('22')
         else:
             raise ValueError('Invalid correct type')
             
         rsetattr(model, layer_name, correct_module)
+        # print(layer_name)
+        # print(indices)
+        # print(prune_indices)
     return model
 
 def fine_tune(opt, model, device):
