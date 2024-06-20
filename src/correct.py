@@ -93,10 +93,11 @@ class ReplaceCorrect(nn.Module):
           out[:, self.indices] = self.cru(x)
           if self.prune_indices is not None:
             out[:, self.prune_indices] = 0
-        elif self.prune_indices is not None:
-          out[:, self.prune_indices] = 0
-        elif self.indices is not None:
-          out[:, self.indices] = self.cru(x)
+        elif self.prune_indices is not None or self.indices is not None:
+          if self.prune_indices is not None:
+            out[:, self.prune_indices] = 0
+          if self.indices is not None:
+            out[:, self.indices] = self.cru(x)
         return out
 
 
