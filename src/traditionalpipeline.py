@@ -229,9 +229,9 @@ def traditionalpipeline(opt, model, device):
                 'optim': optimizer.state_dict(),
                 'sched': scheduler.state_dict(),
                 'acc': acc,
-                'indices': extract_info(model, 'indices'),
-                'prune_indices': extract_info(model, 'prune_indices'),
-                'order': extract_info(model, 'order')
+                # 'indices': extract_info(model, 'indices'),
+                # 'prune_indices': extract_info(model, 'prune_indices'),
+                # 'order': extract_info(model, 'order')
             }
             torch.save(state, get_model_path(opt, state=f'patch_{opt.fs_method}'))
             best_acc = acc
