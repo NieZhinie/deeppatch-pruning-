@@ -18,9 +18,11 @@ from utils import *
 dispatcher = AttrDispatcher('crt_method')
 
 class PatchingCorrect(nn.Module):
-    def __init__(self, conv_layer, indices):
+    def __init__(self, conv_layer, indices, prune_indices, order):
         super(PatchingCorrect, self).__init__()
         self.indices = indices
+        self.prune_indices = prune_indices
+        self.order = order
         self.conv = conv_layer
         self.cru = nn.Conv2d(
             conv_layer.in_channels,
@@ -33,20 +35,24 @@ class PatchingCorrect(nn.Module):
 
     def forward(self, x):
         out = self.conv(x)
+        
         out[:, self.indices] = self.cru(x)
+        
         return out
 
 
 class PruningCorrect(nn.Module):
-    def __init__(self, conv_layer, prune_indices):
+    def __init__(self, conv_layer, indices, prune_indices, order):
         super(PruningCorrect, self).__init__()
+        self.indices = indices
         self.prune_indices = prune_indices
+        self.order = order
         self.conv = conv_layer
 
     def forward(self, x):
         out = self.conv(x)
-        if self.prune_indices is not None :
-            out[:, self.prune_indices] = 0
+        out[:, self.prune_indices] = 0
+        
         return out
 
 
@@ -105,23 +111,38 @@ def traditional_pruning(opt, model, device):
         opt.output_dir, opt.dataset, opt.model, 'susp_filters_distweight.json'
     )))
 
+    sus_filters = json.load(open(os.path.join(
+        opt.output_dir, opt.dataset, opt.model, 'susp_filters_perfloss.json'
+    ))) if opt.susp_side in ('front', 'rear') else {}
+
     conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
+  # print(conv_names)
     for layer_name in conv_names:
         module = rgetattr(model, layer_name)
-        # print(layer_name)
+
+        num_susp = int(module.out_channels * opt.susp_ratio)
         num_prune = int(module.out_channels * opt.prune_ratio)
-        
+             
         if opt.prune_side=='front':
           prune_indices = prune_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
+          indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
+          indices = indices[:num_susp] if num_susp > 0 else None
+        
         elif opt.prune_side=='rear':
-          prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
+            indices = indices[:num_susp] if num_susp > 0 else None
         else:
-          raise ValueError('Invalid pruning side')
+            raise ValueError('Invalid suspicious side')
 
         if module.groups != 1:
             continue
-        correct_module = PruningCorrect(module,  prune_indices)                
+
+  
+        correct_module = PruningCorrect(module, indices, prune_indices, opt.pporder)            
         rsetattr(model, layer_name, correct_module)
+
+        
     model=traditional_finetune(opt, model, device)
     return model
 
@@ -142,23 +163,30 @@ def traditionalpipeline(opt, model, device):
   conv_names = [n for n, m in model.named_modules() if isinstance(m, nn.Conv2d)]
   # print(conv_names)
   for layer_name in conv_names:
-        if layer_name.endswith('.conv'):
-          layer_name_original = layer_name[:-5]
-        else:
-          layer_name_original =layer_name
+        
+        # if layer_name.endswith('.conv'):
+        #   layer_name_original = layer_name[:-5]
+        # else:
+        #   layer_name_original =layer_name
         module = rgetattr(model, layer_name)
+
+        if layer_name.endswith('.conv'):
+          print("1111")
+          layer_name = layer_name[:-5]
+         # 定义新的名称，这里简单地在原有名称前加上"custom_"
+          module._get_name = lambda: layer_name
 
         num_susp = int(module.out_channels * opt.susp_ratio)
         num_prune = int(module.out_channels * opt.prune_ratio)
              
         if opt.prune_side=='front':
-          prune_indices = prune_filters[layer_name_original][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
-          indices = [idx for idx in sus_filters[layer_name_original][opt.patch_indices] if idx not in prune_indices]
+          prune_indices = prune_filters[layer_name][opt.prune_indices][:num_prune] if opt.prune and num_prune > 0 else None
+          indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
           indices = indices[:num_susp] if num_susp > 0 else None
         
         elif opt.prune_side=='rear':
-            prune_indices = prune_filters[layer_name_original][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
-            indices = [idx for idx in sus_filters[layer_name_original][opt.patch_indices] if idx not in prune_indices]
+            prune_indices = prune_filters[layer_name][opt.prune_indices][-num_prune:] if opt.prune and num_prune > 0 else None
+            indices = [idx for idx in sus_filters[layer_name][opt.patch_indices] if idx not in prune_indices]
             indices = indices[:num_susp] if num_susp > 0 else None
         else:
             raise ValueError('Invalid suspicious side')
@@ -167,7 +195,7 @@ def traditionalpipeline(opt, model, device):
             continue
 
   
-        correct_module = PatchingCorrect(module, indices)            
+        correct_module = PatchingCorrect(module, indices, prune_indices, opt.pporder)            
         rsetattr(model, layer_name, correct_module)
         # print(layer_name)
         # print(indices)
