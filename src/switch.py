@@ -9,6 +9,7 @@ from dataset import load_dataset
 from arguments import advparser as parser
 from train import test
 from correct import construct_model, ReplaceCorrect, ConcatCorrect, NoneCorrect
+from traditionalpipeline import PruningCorrect, PatchingCorrect
 from utils import *
 
 
@@ -38,7 +39,9 @@ class AdvWrapper(nn.Module):
         global indicator
         if isinstance(self.module, ReplaceCorrect) or \
             isinstance(self.module, ConcatCorrect) or \
-            isinstance(self.module, NoneCorrect):
+            isinstance(self.module, NoneCorrect)or \
+            isinstance(self.module, PatchingCorrect)or \
+            isinstance(self.module, PruningCorrect):
             out = self.module.conv(x)
             repl = self.module.cru(x)
 
@@ -104,7 +107,9 @@ def switch_on_the_fly(opt, model, device):
     for name, module in model.named_modules():
         if isinstance(module, ReplaceCorrect)\
                 or isinstance(module, ConcatCorrect)\
-                or isinstance(module, NoneCorrect):
+                or isinstance(module, NoneCorrect)\
+                or isinstance(module, PruningCorrect)\
+                or isinstance(module, PatchingCorrect):
             new_module = AdvWrapper(module)
             if first_repl is True:
                 new_module.register_forward_pre_hook(_clean_indicator_hook)
