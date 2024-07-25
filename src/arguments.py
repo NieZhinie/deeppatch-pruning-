@@ -24,7 +24,7 @@ devices = ['cpu', 'cuda']
 datasets = ['cifar10', 'cifar100', 'svhn', 'tinyimagenet', 'stl10']
 models = ['resnet32', 'mobilenetv2_x0_5', 'vgg13_bn', 'shufflenetv2_x1_0', 'svhn', 'resnet18', 'resnet18f', 'stl10']
 noises = ['gaussion']
-crtmethods = ['patch', 'finetune', 'sensei', 'apricot', 'robot', 'gini', 'augmix', 'none']
+crtmethods = ['patch', 'finetune', 'sensei', 'apricot', 'robot', 'gini', 'augmix', 'none','traditionalpipeline']
 fsmethods = ['featswap', 'perfloss', 'ratioestim', 'avgloss', 'distweight']
 ptmethods = ['NULL', 'DC', 'DP', 'DP-s', 'DP-SS', 'SS-DP']
 indices = ['indices', 'accindices', 'avgindices']
@@ -56,6 +56,7 @@ advparser.add_argument('-p', '--pt_method', type=str, default=None, required='pa
 advparser.add_argument('--prune', action='store_true')
 advparser.add_argument('--finetune', action='store_true')
 advparser.add_argument('--crt_epoch', type=int, default=20)
+advparser.add_argument('--trad_finetune_epoch', type=int, default=20)
 advparser.add_argument('--susp_ratio', type=float, default=0.25)
 advparser.add_argument('--prune_ratio', type=float, default=0.25)
 advparser.add_argument('--susp_side', type=str, default='front', choices=['front', 'rear', 'random'])
